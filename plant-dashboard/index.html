@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Plant Dashboard</title>
+  <meta name="description" content="Simple plant moisture dashboard for quick watering decisions." />
+  <link rel="icon" href="favicon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0ea5e9">
+  <style>
+    :root{
+      --bg:#0b0f14;
+      --panel:#10161d;
+      --muted:#70808f;
+      --ok:#10b981;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --accent:#0ea5e9;
+      --card:#101820;
+      --border:#1e2a36;
+      --text:#e6edf3;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:linear-gradient(180deg,#0b0f14, #0b1118 30%, #0b0f14 100%);
+      color:var(--text);
+      font:16px system-ui,-apple-system,Segoe UI,Roboto,Inter,Ubuntu,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    }
+    header{
+      position:sticky;top:0;z-index:10;
+      backdrop-filter:saturate(140%) blur(8px);
+      background:color-mix(in srgb, var(--bg) 70%, transparent);
+      border-bottom:1px solid var(--border);
+    }
+    .wrap{max-width:1000px;margin:0 auto;padding:16px}
+    .topbar{
+      display:flex;align-items:center;gap:12px;justify-content:space-between;
+    }
+    h1{font-size:20px;display:flex;align-items:center;gap:10px;margin:0}
+    .grid{
+      display:grid;gap:14px;
+      grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+      padding-block:14px 36px;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      overflow:hidden;
+      display:flex;flex-direction:column;
+      box-shadow:0 1px 0 rgba(255,255,255,.03), 0 10px 30px rgba(0,0,0,.25);
+      transition:transform .15s ease;
+    }
+    .card:active{transform:scale(.995)}
+    .card img{width:100%;height:150px;object-fit:cover;background:#0a0f14}
+    .card .content{padding:12px 12px 14px}
+    .name{font-weight:700;font-size:16px;margin:2px 0 6px}
+    .meta{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:12px}
+    .pill{padding:3px 8px;border-radius:999px;border:1px solid var(--border);}
+    .status{font-size:13px;margin-top:8px;padding:8px;border-radius:10px;border:1px dashed var(--border)}
+    .status.ok{border-color:color-mix(in srgb, var(--ok) 60%, var(--border));}
+    .status.warn{border-color:color-mix(in srgb, var(--warn) 60%, var(--border));}
+    .status.bad{border-color:color-mix(in srgb, var(--bad) 60%, var(--border));}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    button,.btn{
+      background:var(--panel);color:var(--text);border:1px solid var(--border);
+      padding:8px 10px;border-radius:10px;cursor:pointer;font-weight:600;
+    }
+    button:hover{border-color:#2a3a4a}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap}
+    input,select{
+      background:#0a121a;color:var(--text);
+      border:1px solid var(--border);border-radius:10px;padding:8px 10px;
+    }
+    dialog{border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:16px;padding:0;max-width:560px;width:calc(100% - 24px)}
+    dialog header{border:0;background:none;padding:16px}
+    dialog form{padding:16px;display:grid;gap:10px}
+    dialog .actions{display:flex;justify-content:space-between;gap:8px;padding:12px;border-top:1px solid var(--border)}
+    label{font-size:12px;color:var(--muted)}
+    .kpis{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .kpi{border:1px solid var(--border);border-radius:12px;padding:8px 10px;font-size:12px;color:var(--muted)}
+    .footer-note{color:var(--muted);font-size:12px;text-align:center;padding:20px}
+    .search{flex:1;min-width:140px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap topbar">
+      <h1>
+        <img alt="" src="favicon.svg" width="22" height="22">
+        Plant Dashboard
+      </h1>
+      <div class="toolbar">
+        <input id="search" class="search" placeholder="Search plants…">
+        <button id="addBtn" title="Add plant">＋ Add</button>
+        <button id="exportBtn" title="Export data">Export</button>
+        <input type="file" id="importInput" accept="application/json" hidden>
+        <button id="importBtn" title="Import data">Import</button>
+        <button id="settingsBtn" title="Edit defaults">Settings</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="kpis" id="kpis"></div>
+    <div class="grid" id="grid"></div>
+    <p class="footer-note">Tip: tap a plant to update its latest moisture reading (0–10). Threshold rules determine the status: “Water / Hold / Check tomorrow”.</p>
+  </main>
+
+  <dialog id="plantDialog">
+    <header class="topbar">
+      <strong id="dialogTitle" style="padding:16px">Add plant</strong>
+    </header>
+    <form id="plantForm" method="dialog">
+      <div class="row">
+        <div style="flex:2">
+          <label>Name</label>
+          <input name="name" required placeholder="e.g., Kangaroo Paw (deck pot)">
+        </div>
+        <div style="flex:1">
+          <label>Type</label>
+          <input name="type" placeholder="e.g., Anigozanthos">
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:1">
+          <label>Moisture (0–10)</label>
+          <input name="moisture" type="number" min="0" max="10" step="1" placeholder="e.g., 4">
+        </div>
+        <div style="flex:1">
+          <label>Photo URL (optional)</label>
+          <input name="photo" placeholder="https://…">
+        </div>
+      </div>
+      <div class="row">
+        <div class="kpi">Rules use defaults, but you can override per-plant in Settings later.</div>
+      </div>
+      <div class="actions">
+        <button value="cancel">Cancel</button>
+        <button class="btn" value="default">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog">
+    <header class="topbar">
+      <strong style="padding:16px">Watering rules</strong>
+    </header>
+    <form id="settingsForm" method="dialog">
+      <div class="row">
+        <div class="kpi">These are defaults, applied when a plant doesn’t specify its own thresholds.</div>
+      </div>
+      <div class="row">
+        <div style="flex:1">
+          <label>Water if ≤</label>
+          <input name="waterAtOrBelow" type="number" min="0" max="10">
+        </div>
+        <div style="flex:1">
+          <label>Check tomorrow if between</label>
+          <input name="checkLow" type="number" min="0" max="10" placeholder="low">
+          <input name="checkHigh" type="number" min="0" max="10" placeholder="high">
+        </div>
+        <div style="flex:1">
+          <label>Hold if ≥</label>
+          <input name="holdAtOrAbove" type="number" min="0" max="10">
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:1">
+          <label>Days until “stale” reading</label>
+          <input name="staleDays" type="number" min="1" max="30">
+        </div>
+      </div>
+      <div class="actions">
+        <button value="cancel">Cancel</button>
+        <button class="btn" value="default">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
